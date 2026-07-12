@@ -55,9 +55,6 @@
   button:hover { border-color: var(--accent); }
   button:disabled { opacity: .4; cursor: not-allowed; }
   .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .color-toggle { display: flex; gap: 8px; }
-  .color-toggle button { flex: 1; }
-  .color-toggle button.active { border-color: var(--accent); background: var(--accent); color: #fff; }
   .file-btn {
     display: block; text-align: center; background: var(--panel-2); border: 1px dashed var(--border);
     border-radius: 8px; padding: 14px; cursor: pointer; color: var(--muted); font-size: 14px;
@@ -119,18 +116,6 @@
     </div>
 
     <div class="card">
-      <h2>偵測設定</h2>
-      <label class="small" style="margin-top:0">框線顏色</label>
-      <div class="color-toggle">
-        <button id="btnBlack" class="active">⬛ 黑框</button>
-        <button id="btnBlue">🟦 藍框</button>
-      </div>
-      <label class="small">顏色容差 <span id="tolVal">50</span></label>
-      <input type="range" id="tol" min="0" max="100" value="50">
-      <div class="hint">偵測不準時:框線深/淡就調高容差,抓到太多雜訊就調低。</div>
-    </div>
-
-    <div class="card">
       <h2>操作</h2>
       <div class="btn-row">
         <button id="btnRecalib" disabled>🎯 重新標記尺</button>
@@ -189,10 +174,6 @@
   const ctx = canvas.getContext('2d');
   const fileInput = document.getElementById('file');
   const emptyHint = document.getElementById('emptyHint');
-  const btnBlack = document.getElementById('btnBlack');
-  const btnBlue = document.getElementById('btnBlue');
-  const tolInput = document.getElementById('tol');
-  const tolVal = document.getElementById('tolVal');
   const btnRecalib = document.getElementById('btnRecalib');
   const btnUndo = document.getElementById('btnUndo');
   const btnClearAll = document.getElementById('btnClearAll');
@@ -216,9 +197,8 @@
   let calibPts = [];           // 原始像素座標
   let cmPerPx = null;          // 每「原始像素」代表幾公分
   let knownLen = DEFAULT_LEN;
-  let colorMode = 'black';
-  let tol = 50;
   let analysis = null;         // {data, w, h, af}  af = 縮圖/原圖 比例
+  let scratch = null;          // 偵測用重複使用緩衝區
   let regions = [];            // {overlay, areaCm2, label, palIdx, cx, cy}
   let lastMsg = '';
   let density = 50;            // 植髮密度(株/cm²)
@@ -262,6 +242,8 @@
     const o = off.getContext('2d');
     o.drawImage(img, 0, 0, w, h);
     analysis = { data: o.getImageData(0, 0, w, h).data, w, h, af };
+    const N = w * h;   // 偵測用緩衝區,一次配置重複使用
+    scratch = { wall: new Uint8Array(N), outside: new Uint8Array(N), comp: new Uint8Array(N), stack: new Int32Array(N) };
   }
 
   function toImgCoords(evt) {
@@ -301,61 +283,76 @@
       `已校正:<b>${knownLen} cm</b> = ${distPx.toFixed(1)} px<br>比例:<b>${(cmPerPx * 10).toFixed(4)}</b> mm/px`;
   }
 
-  // 依框線顏色判斷某像素是否為「牆」(框線)
-  function makeWallTest() {
-    const t = tol;
-    if (colorMode === 'black') {
+  // 以指定框線顏色/容差找出點擊處的封閉區域;失敗回傳 null(熱迴圈全部內聯以求速度)
+  function tryEnclosure(color, t, ax, ay) {
+    const { data, w, h } = analysis;
+    const N = w * h;
+    const { wall, outside, comp, stack } = scratch;
+    // 標記「牆」(框線)像素
+    if (color === 'black') {
       const thr = 30 + t * 1.5;                 // 亮度門檻，容差越大越寬
-      return (r, g, b) => Math.max(r, g, b) < thr;
+      for (let i = 0, q = 0; i < N; i++, q += 4) {
+        wall[i] = (data[q] < thr && data[q + 1] < thr && data[q + 2] < thr) ? 1 : 0;
+      }
     } else {
       const dr = 70 - t * 0.6, dg = 50 - t * 0.5;
-      return (r, g, b) => b > 60 && (b - r) > dr && (b - g) > dg;
-    }
-  }
-
-  // 點框內 → 找出被框線包住的封閉區域
-  function detectAt(p) {
-    if (!analysis || !cmPerPx) return;
-    const { data, w, h, af } = analysis;
-    const ax = Math.round(p.x * af), ay = Math.round(p.y * af);
-    if (ax < 0 || ay < 0 || ax >= w || ay >= h) return;
-    const N = w * h;
-    const wf = makeWallTest();
-    const wall = new Uint8Array(N);
-    for (let i = 0; i < N; i++) {
-      const q = i * 4;
-      if (wf(data[q], data[q + 1], data[q + 2])) wall[i] = 1;
+      for (let i = 0, q = 0; i < N; i++, q += 4) {
+        const b = data[q + 2];
+        wall[i] = (b > 60 && (b - data[q]) > dr && (b - data[q + 1]) > dg) ? 1 : 0;
+      }
     }
     // 從影像邊界沿「非框線」淹水 → 標記外部
-    const outside = new Uint8Array(N);
-    const stack = new Int32Array(N);
-    let sp = 0;
-    const pushOut = i => { if (!wall[i] && !outside[i]) { outside[i] = 1; stack[sp++] = i; } };
-    for (let x = 0; x < w; x++) { pushOut(x); pushOut((h - 1) * w + x); }
-    for (let y = 0; y < h; y++) { pushOut(y * w); pushOut(y * w + w - 1); }
+    outside.fill(0);
+    let sp = 0, j;
+    for (let x = 0; x < w; x++) {
+      j = x; if (!wall[j] && !outside[j]) { outside[j] = 1; stack[sp++] = j; }
+      j = (h - 1) * w + x; if (!wall[j] && !outside[j]) { outside[j] = 1; stack[sp++] = j; }
+    }
+    for (let y = 0; y < h; y++) {
+      j = y * w; if (!wall[j] && !outside[j]) { outside[j] = 1; stack[sp++] = j; }
+      j = y * w + w - 1; if (!wall[j] && !outside[j]) { outside[j] = 1; stack[sp++] = j; }
+    }
     while (sp > 0) {
       const i = stack[--sp], x = i % w, y = (i / w) | 0;
-      if (x > 0) pushOut(i - 1);
-      if (x < w - 1) pushOut(i + 1);
-      if (y > 0) pushOut(i - w);
-      if (y < h - 1) pushOut(i + w);
+      if (x > 0) { j = i - 1; if (!wall[j] && !outside[j]) { outside[j] = 1; stack[sp++] = j; } }
+      if (x < w - 1) { j = i + 1; if (!wall[j] && !outside[j]) { outside[j] = 1; stack[sp++] = j; } }
+      if (y > 0) { j = i - w; if (!wall[j] && !outside[j]) { outside[j] = 1; stack[sp++] = j; } }
+      if (y < h - 1) { j = i + w; if (!wall[j] && !outside[j]) { outside[j] = 1; stack[sp++] = j; } }
     }
     const seed = ay * w + ax;
-    if (outside[seed]) { fail('這裡沒有被封閉的框線包住 — 請點框「內部」,或調整顏色/容差'); return; }
+    if (outside[seed]) return null;
     // 從點擊處在「非外部」像素中取連通塊 = 框線 + 框內(含內部物件)
-    const comp = new Uint8Array(N);
+    comp.fill(0);
     let sp2 = 0; comp[seed] = 1; stack[sp2++] = seed;
     let count = 0, sx = 0, sy = 0;
     while (sp2 > 0) {
       const i = stack[--sp2], x = i % w, y = (i / w) | 0;
       count++; sx += x; sy += y;
-      if (x > 0 && !outside[i - 1] && !comp[i - 1]) { comp[i - 1] = 1; stack[sp2++] = i - 1; }
-      if (x < w - 1 && !outside[i + 1] && !comp[i + 1]) { comp[i + 1] = 1; stack[sp2++] = i + 1; }
-      if (y > 0 && !outside[i - w] && !comp[i - w]) { comp[i - w] = 1; stack[sp2++] = i - w; }
-      if (y < h - 1 && !outside[i + w] && !comp[i + w]) { comp[i + w] = 1; stack[sp2++] = i + w; }
+      if (x > 0) { j = i - 1; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp2++] = j; } }
+      if (x < w - 1) { j = i + 1; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp2++] = j; } }
+      if (y > 0) { j = i - w; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp2++] = j; } }
+      if (y < h - 1) { j = i + w; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp2++] = j; } }
     }
-    if (count > 0.92 * N) { fail('偵測範圍過大,框線可能未封閉 — 請調整容差或確認框已閉合'); return; }
-    if (count < 20) { fail('偵測範圍太小 — 請點框內較空曠處,或調整容差'); return; }
+    if (count > 0.92 * N || count < 20) return null;
+    return { comp: comp.slice(), count, sx, sy };   // comp 是共用緩衝區,須複製
+  }
+
+  // 點框內 → 自動嘗試黑/藍框線與多組容差,取最緊密的封閉區域
+  function detectAt(p) {
+    if (!analysis || !cmPerPx) return;
+    const { w, h, af } = analysis;
+    const ax = Math.round(p.x * af), ay = Math.round(p.y * af);
+    if (ax < 0 || ay < 0 || ax >= w || ay >= h) return;
+    let best = null;
+    for (const color of ['black', 'blue']) {
+      for (const t of [30, 50, 70, 90]) {
+        const r = tryEnclosure(color, t, ax, ay);
+        if (r && (!best || r.count < best.count)) best = { ...r, color };
+      }
+    }
+    if (!best) { fail('這裡偵測不到封閉的黑/藍框 — 請點框「內部」,並確認框線閉合、清晰'); return; }
+    const { comp, count, sx, sy, color: hitColor } = best;
+    const N = w * h;
 
     // 面積:每個縮圖像素 = (1/af)^2 個原始像素
     const areaCm2 = count * (1 / (af * af)) * cmPerPx * cmPerPx;
@@ -377,7 +374,7 @@
 
     regions.push({
       overlay: over, areaCm2, palIdx,
-      label: colorMode === 'black' ? '黑框' : '藍框',
+      label: hitColor === 'black' ? '黑框' : '藍框',
       cx: (sx / count) / af, cy: (sy / count) / af
     });
     lastMsg = '';
@@ -407,7 +404,7 @@
         guideText.innerHTML = `<span style="color:var(--danger)">${lastMsg}</span>`;
       } else {
         guideText.innerHTML =
-          `點一下<b>${colorMode === 'black' ? '黑' : '藍'}框內部</b>,自動算出框內面積 · 要換顏色請用左側切換 · 可連續點多個框`;
+          `點一下<b>黑框或藍框內部</b>,自動辨識框線並算出面積 · 可連續點多個框`;
       }
     }
   }
@@ -528,11 +525,6 @@
       updateResults();
     });
   });
-
-  // 顏色 / 容差控制
-  btnBlack.addEventListener('click', () => { colorMode = 'black'; btnBlack.classList.add('active'); btnBlue.classList.remove('active'); updateGuide(); });
-  btnBlue.addEventListener('click', () => { colorMode = 'blue'; btnBlue.classList.add('active'); btnBlack.classList.remove('active'); updateGuide(); });
-  tolInput.addEventListener('input', () => { tol = parseInt(tolInput.value); tolVal.textContent = tol; });
 
   btnRecalib.addEventListener('click', () => { calibPts = []; cmPerPx = null; mode = 'calib'; lastMsg = ''; refresh(); });
   btnUndo.addEventListener('click', () => { regions.pop(); reindex(); refresh(); });
