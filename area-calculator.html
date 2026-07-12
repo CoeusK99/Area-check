@@ -42,17 +42,32 @@
   }
   .card h2 {
     margin: 0 0 10px; font-size: 13px; text-transform: uppercase;
-    letter-spacing: .5px; color: var(--muted); display: flex; align-items: center; gap: 8px;
-  }
-  .step-num {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 20px; height: 20px; border-radius: 50%; background: var(--accent);
-    color: #fff; font-size: 12px; font-weight: 700;
+    letter-spacing: .5px; color: var(--muted);
   }
   .canvas-area {
     flex: 1; min-width: 320px; background: var(--panel);
     border: 1px solid var(--border); border-radius: 12px; padding: 10px;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+  }
+  /* 大引導帶 */
+  .guide {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 10px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    font-size: 15px; line-height: 1.4;
+  }
+  .guide .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+  }
+  .guide.calib { border-color: var(--ruler); }
+  .guide.calib .badge { background: var(--ruler); color: #3a2e00; }
+  .guide.draw { border-color: var(--accent-2); }
+  .guide.draw .badge { background: var(--accent-2); color: #06341c; }
+  .guide .len-inline {
+    width: 62px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 14px; text-align: center;
   }
   #stage-wrap {
     position: relative; width: 100%; overflow: auto; background: #000;
@@ -69,14 +84,8 @@
   button:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
   button.primary:hover { filter: brightness(1.1); }
-  button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   button:disabled { opacity: .4; cursor: not-allowed; }
   .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
-  input[type="number"] {
-    width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--panel-2); color: var(--text); font-size: 14px;
-  }
   .file-btn {
     display: block; text-align: center; background: var(--panel-2);
     border: 1px dashed var(--border); border-radius: 8px; padding: 14px;
@@ -84,7 +93,7 @@
   }
   .file-btn:hover { border-color: var(--accent); color: var(--text); }
   input[type="file"] { display: none; }
-  .status { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .status { font-size: 12px; color: var(--muted); line-height: 1.5; }
   .status b { color: var(--text); }
   .hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
 
@@ -116,39 +125,29 @@
 <body>
 <header>
   <h1>📐 平面面積計算器</h1>
-  <p>照片下方放一把已知長度的尺做比例校正，可框選多個區域分別計算面積</p>
+  <p>拍照時把尺一起拍進去 → 點尺兩端定比例 → 框選一個或多個區域,分別算出面積</p>
 </header>
 
 <div class="wrap">
   <div class="sidebar">
     <div class="card">
-      <h2><span class="step-num">1</span> 載入照片</h2>
-      <label class="file-btn" for="file">📷 點此選擇 / 拍攝照片</label>
+      <h2>載入照片</h2>
+      <label class="file-btn" for="file">📷 選擇 / 拍攝照片</label>
       <input type="file" id="file" accept="image/*">
-      <div class="hint">照片下方放一把直尺（與待測物同一平面），盡量正對拍攝以減少透視誤差。</div>
+      <div class="hint">照片裡要有一把尺(和待測物同一平面),盡量正對拍攝以減少透視誤差。載入後會依畫面上方的提示一步步進行。</div>
     </div>
 
     <div class="card">
-      <h2><span class="step-num">2</span> 尺規校正</h2>
-      <label for="knownLen">尺上兩點的實際長度 (cm)</label>
-      <input type="number" id="knownLen" value="15" min="0.1" step="0.1">
-      <div class="btn-row" style="margin-top:10px">
-        <button id="btnCalib" disabled>🎯 標記尺的兩端</button>
-      </div>
-      <div class="status" id="calibStatus">尚未校正</div>
-    </div>
-
-    <div class="card">
-      <h2><span class="step-num">3</span> 框選區域（可多個）</h2>
+      <h2>操作</h2>
       <div class="btn-row">
-        <button id="btnDraw" disabled>✏️ 開始 / 繼續框選</button>
+        <button id="btnRecalib" disabled>🎯 重新標記尺</button>
         <button id="btnFinish" disabled>✔️ 完成此框</button>
       </div>
       <div class="btn-row" style="margin-top:8px">
         <button id="btnUndo" disabled>↩︎ 退回一點</button>
         <button id="btnClearAll" disabled>🗑 全部清除</button>
       </div>
-      <div class="hint">沿邊界點按形成封閉多邊形（≥3 點）。按「完成此框」後可再新增下一個框。</div>
+      <div class="status" id="calibStatus" style="margin-top:10px">尚未載入照片</div>
     </div>
 
     <div class="card">
@@ -162,11 +161,14 @@
   </div>
 
   <div class="canvas-area">
+    <div class="guide" id="guide">
+      <span class="badge" id="guideBadge">1</span>
+      <span id="guideText">先載入一張照片(記得把尺一起拍進去)</span>
+    </div>
     <div id="stage-wrap">
       <div class="empty-hint" id="emptyHint">請先於左側載入一張照片 👈</div>
       <canvas id="canvas" style="display:none"></canvas>
     </div>
-    <div class="status" id="mainStatus"></div>
   </div>
 </div>
 
@@ -176,25 +178,27 @@
   const ctx = canvas.getContext('2d');
   const fileInput = document.getElementById('file');
   const emptyHint = document.getElementById('emptyHint');
-  const btnCalib = document.getElementById('btnCalib');
-  const btnDraw = document.getElementById('btnDraw');
+  const btnRecalib = document.getElementById('btnRecalib');
   const btnFinish = document.getElementById('btnFinish');
   const btnUndo = document.getElementById('btnUndo');
   const btnClearAll = document.getElementById('btnClearAll');
-  const knownLenInput = document.getElementById('knownLen');
   const calibStatus = document.getElementById('calibStatus');
-  const mainStatus = document.getElementById('mainStatus');
   const regionList = document.getElementById('regionList');
   const totalVal = document.getElementById('totalVal');
+  const guide = document.getElementById('guide');
+  const guideBadge = document.getElementById('guideBadge');
+  const guideText = document.getElementById('guideText');
 
   const COLORS = ['#2ecc71', '#4f9dff', '#ff8c42', '#c77dff', '#ff5c8a', '#43d9c9', '#f4d35e', '#a0e548'];
+  const DEFAULT_LEN = 15;
 
   let img = null;
   let scale = 1;
-  let mode = null;          // 'calib' | 'draw' | null
+  let mode = null;          // 'calib' | 'draw'
   let calibPts = [];        // 校正兩點 (圖片座標)
   let cmPerPx = null;       // 每像素代表幾公分
-  let regions = [];         // 已完成的多邊形陣列，每個為點陣列
+  let knownLen = DEFAULT_LEN;
+  let regions = [];         // 已完成的多邊形
   let current = [];         // 進行中的多邊形
 
   fileInput.addEventListener('change', e => {
@@ -205,8 +209,8 @@
     im.onload = () => {
       img = im;
       setupCanvas();
-      calibPts = []; cmPerPx = null; regions = []; current = []; mode = null;
-      calibStatus.textContent = '尚未校正';
+      calibPts = []; cmPerPx = null; regions = []; current = [];
+      mode = 'calib';           // 載入後自動進入尺規校正
       refresh();
       URL.revokeObjectURL(url);
     };
@@ -240,26 +244,36 @@
     if (mode === 'calib') {
       if (calibPts.length >= 2) calibPts = [];
       calibPts.push(p);
-      if (calibPts.length === 2) computeCalibration();
+      if (calibPts.length === 2) {
+        computeCalibration();
+        if (cmPerPx) mode = 'draw';   // 校正完成 → 自動切到框選
+      }
     } else if (mode === 'draw') {
       current.push(p);
     }
     refresh();
   });
 
+  function readLenInput() {
+    const el = document.getElementById('lenInline');
+    if (el) {
+      const v = parseFloat(el.value);
+      if (v > 0) knownLen = v;
+    }
+  }
+
   function computeCalibration() {
     const [a, b] = calibPts;
     const distPx = Math.hypot(a.x - b.x, a.y - b.y);
-    const known = parseFloat(knownLenInput.value);
-    if (!known || known <= 0 || distPx < 2) {
+    if (!knownLen || knownLen <= 0 || distPx < 2) {
       cmPerPx = null;
-      calibStatus.innerHTML = '<span style="color:var(--danger)">校正失敗，請重試</span>';
+      calibStatus.innerHTML = '<span style="color:var(--danger)">校正失敗,請重新標記</span>';
       return;
     }
-    cmPerPx = known / distPx;
+    cmPerPx = knownLen / distPx;
     calibStatus.innerHTML =
-      `已校正：<b>${known} cm</b> = ${distPx.toFixed(1)} px<br>` +
-      `比例：<b>${(cmPerPx * 10).toFixed(4)}</b> mm/px`;
+      `已校正:<b>${knownLen} cm</b> = ${distPx.toFixed(1)} px<br>` +
+      `比例:<b>${(cmPerPx * 10).toFixed(4)}</b> mm/px`;
   }
 
   function polygonAreaPx(pts) {
@@ -283,9 +297,48 @@
     return { x: x / pts.length, y: y / pts.length };
   }
 
+  function updateGuide() {
+    guide.classList.remove('calib', 'draw');
+    if (!img) {
+      guideBadge.textContent = '1';
+      guideText.textContent = '先載入一張照片(記得把尺一起拍進去)';
+    } else if (mode === 'calib') {
+      guide.classList.add('calib');
+      guideBadge.textContent = '2';
+      const n = calibPts.length;
+      guideText.innerHTML =
+        `點一下尺的<b>${n === 0 ? '起點' : n === 1 ? '終點' : '兩端'}</b>,尺長 = ` +
+        `<input id="lenInline" class="len-inline" type="number" min="0.1" step="0.1" value="${knownLen}"> cm` +
+        (n === 1 ? '　<span style="color:var(--muted)">(再點一下另一端)</span>' : '');
+      bindLenInput();
+    } else if (mode === 'draw') {
+      guide.classList.add('draw');
+      guideBadge.textContent = '3';
+      guideText.innerHTML = current.length < 3
+        ? `沿物體邊界點一圈(至少 3 點),目前 <b>${current.length}</b> 點`
+        : `已框 <b>${current.length}</b> 點 → 按「<b>完成此框</b>」;要再量下一個就直接點下一區的邊界`;
+    }
+  }
+
+  function bindLenInput() {
+    const el = document.getElementById('lenInline');
+    if (!el) return;
+    el.addEventListener('input', () => {
+      const v = parseFloat(el.value);
+      if (v > 0) {
+        knownLen = v;
+        if (calibPts.length === 2) computeCalibration();
+        updateResults();
+        redraw();
+      }
+    });
+    el.addEventListener('click', e => e.stopPropagation());
+  }
+
   function refresh() {
     updateButtons();
     updateResults();
+    updateGuide();
     redraw();
   }
 
@@ -293,10 +346,7 @@
     regionList.innerHTML = '';
     const all = regions.map((r, i) => ({ pts: r, i, done: true }));
     if (current.length) all.push({ pts: current, i: regions.length, done: false });
-
-    if (!all.length) {
-      regionList.innerHTML = '<div class="region-empty">尚無框選區域</div>';
-    }
+    if (!all.length) regionList.innerHTML = '<div class="region-empty">尚無框選區域</div>';
 
     let total = 0, hasAny = false;
     all.forEach(item => {
@@ -313,17 +363,14 @@
       }
       div.innerHTML =
         `<span class="swatch" style="background:${color}"></span>` +
-        `<span class="rlabel">框 ${item.i + 1}${item.done ? '' : '（繪製中）'}</span>` +
+        `<span class="rlabel">框 ${item.i + 1}${item.done ? '' : '(繪製中)'}</span>` +
         valHtml +
         (item.done ? `<button class="rdel" data-i="${item.i}" title="刪除">✕</button>` : '');
       regionList.appendChild(div);
     });
 
     regionList.querySelectorAll('.rdel').forEach(b => {
-      b.addEventListener('click', () => {
-        regions.splice(parseInt(b.dataset.i), 1);
-        refresh();
-      });
+      b.addEventListener('click', () => { regions.splice(parseInt(b.dataset.i), 1); refresh(); });
     });
 
     if (hasAny) {
@@ -341,7 +388,6 @@
     ctx.drawImage(img, 0, 0);
     const s = 1 / scale;
 
-    // 校正尺線
     if (calibPts.length) {
       ctx.strokeStyle = '#ffcc33';
       ctx.lineWidth = 3 * s;
@@ -354,13 +400,11 @@
       calibPts.forEach(p => dot(p, '#ffcc33', 6 * s));
     }
 
-    // 已完成 + 進行中的多邊形
     const draws = regions.map((r, i) => ({ pts: r, i, done: true }));
     if (current.length) draws.push({ pts: current, i: regions.length, done: false });
     draws.forEach(item => {
       const color = COLORS[item.i % COLORS.length];
-      drawPoly(item.pts, color, item.done, s);
-      // 編號標籤
+      drawPoly(item.pts, color, s);
       if (item.pts.length >= 1) {
         const c = item.pts.length >= 3 ? centroid(item.pts) : item.pts[0];
         ctx.font = `${16 * s}px sans-serif`;
@@ -373,7 +417,7 @@
     });
   }
 
-  function drawPoly(pts, color, closed, s) {
+  function drawPoly(pts, color, s) {
     if (!pts.length) return;
     ctx.strokeStyle = color;
     ctx.fillStyle = hexToRgba(color, 0.22);
@@ -397,34 +441,25 @@
     return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
   }
 
-  function setMode(m) {
-    mode = (mode === m) ? null : m;
-    btnCalib.classList.toggle('active', mode === 'calib');
-    btnDraw.classList.toggle('active', mode === 'draw');
-    mainStatus.textContent =
-      mode === 'calib' ? '校正模式：點按尺上相距已知長度的兩點' :
-      mode === 'draw' ? '框選模式：沿邊界點按（≥3 點），完成後按「完成此框」' : '';
-    updateButtons();
-  }
-
-  btnCalib.addEventListener('click', () => setMode('calib'));
-  btnDraw.addEventListener('click', () => setMode('draw'));
+  btnRecalib.addEventListener('click', () => {
+    calibPts = []; cmPerPx = null; mode = 'calib'; refresh();
+  });
   btnFinish.addEventListener('click', () => {
-    if (current.length >= 3) { regions.push(current); current = []; }
-    else if (current.length) { current = []; } // 不足 3 點直接丟棄
+    if (current.length >= 3) regions.push(current);
+    current = [];
     refresh();
   });
   btnUndo.addEventListener('click', () => { current.pop(); refresh(); });
   btnClearAll.addEventListener('click', () => { regions = []; current = []; refresh(); });
-  knownLenInput.addEventListener('input', () => { if (calibPts.length === 2) computeCalibration(); refresh(); });
 
   function updateButtons() {
     const has = !!img;
-    btnCalib.disabled = !has;
-    btnDraw.disabled = !has;
+    btnRecalib.disabled = !has;
     btnFinish.disabled = current.length < 3;
     btnUndo.disabled = current.length === 0;
     btnClearAll.disabled = regions.length === 0 && current.length === 0;
+    if (!img) calibStatus.textContent = '尚未載入照片';
+    else if (!cmPerPx && calibStatus.textContent === '尚未載入照片') calibStatus.textContent = '請依上方提示點尺的兩端';
   }
 
   window.addEventListener('resize', () => { if (img) { setupCanvas(); redraw(); } });
