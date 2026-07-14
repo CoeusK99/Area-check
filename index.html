@@ -93,6 +93,15 @@
   .graft-row .gval { margin-left: auto; font-weight: 700; }
   .total.graft { background: linear-gradient(135deg, #142a45, #1a1d24); border: 1px solid #2c5a8f; }
   .total.graft .val { color: var(--accent); }
+  .caliber-row { display: flex; align-items: center; gap: 6px; font-size: 16px; }
+  .caliber-row .prefix { color: var(--text); font-weight: 600; letter-spacing: 1px; }
+  .caliber-row input {
+    width: 64px; padding: 8px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel-2); color: var(--text); font-size: 16px; text-align: center;
+  }
+  .caliber-row .suffix { color: var(--muted); font-size: 14px; }
+  .total.hcv { background: linear-gradient(135deg, #2a1f3d, #1a1d24); border: 1px solid #6b4fa0; }
+  .total.hcv .val { color: #c77dff; }
 </style>
 </head>
 <body>
@@ -137,6 +146,16 @@
         <div class="val" id="graftVal">—</div>
         <div class="unit">預估需要植髮株數</div>
       </div>
+      <label class="small">客戶毛囊粗細(髮徑)</label>
+      <div class="caliber-row">
+        <span class="prefix">0.0</span>
+        <input type="number" id="caliber" min="1" max="99" step="1" placeholder="xx" inputmode="numeric">
+        <span class="suffix">mm</span>
+      </div>
+      <div class="total hcv" style="margin-top:10px">
+        <div class="val" id="hcvVal">—</div>
+        <div class="unit" id="hcvSub">HCV 覆蓋值 = 髮徑(mm) × 密度(株/cm²)</div>
+      </div>
     </div>
   </div>
 
@@ -167,6 +186,9 @@
   const densityGrid = document.getElementById('densityGrid');
   const graftList = document.getElementById('graftList');
   const graftVal = document.getElementById('graftVal');
+  const caliberInput = document.getElementById('caliber');
+  const hcvVal = document.getElementById('hcvVal');
+  const hcvSub = document.getElementById('hcvSub');
 
   const PALETTE = ['#2ecc71', '#4f9dff', '#ff8c42', '#c77dff', '#ff5c8a', '#43d9c9', '#f4d35e', '#a0e548'];
   const DEFAULT_LEN = 15;
@@ -187,6 +209,7 @@
   let nextPal = 0;
   let lastMsg = '';
   let density = 50;
+  let caliber = null;          // 髮徑(mm),輸入 xx → 0.0xx
 
   fileInput.addEventListener('change', e => {
     const f = e.target.files[0];
@@ -629,6 +652,17 @@
       `${totalGrafts.toLocaleString()}<div class="unit" style="margin-top:2px">${totalArea.toFixed(2)} cm² × ${density} 株/cm²</div>`;
   }
 
+  function updateHCV() {
+    if (!caliber) {
+      hcvVal.textContent = '—';
+      hcvSub.textContent = 'HCV 覆蓋值 = 髮徑(mm) × 密度(株/cm²)';
+      return;
+    }
+    const hcv = caliber * density;
+    hcvVal.textContent = hcv.toFixed(2);
+    hcvSub.textContent = `HCV = ${caliber.toFixed(3)} mm × ${density} 株/cm²`;
+  }
+
   function redraw() {
     if (!img) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -671,7 +705,14 @@
       density = parseInt(b.dataset.d);
       densityGrid.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
       updateResults();
+      updateHCV();
     });
+  });
+
+  caliberInput.addEventListener('input', () => {
+    const v = parseInt(caliberInput.value);
+    caliber = (v >= 1 && v <= 99) ? v / 1000 : null;
+    updateHCV();
   });
 
   window.addEventListener('resize', () => { if (img) { setupCanvas(); redraw(); } });
