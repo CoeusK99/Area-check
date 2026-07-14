@@ -19,7 +19,7 @@
   header h1 { margin: 0; font-size: 18px; }
   header p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
   .wrap { display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; }
-  .sidebar { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; }
+  .sidebar { width: 320px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
   .card h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
   .canvas-area {
@@ -81,16 +81,6 @@
   }
   .total .val { font-size: 24px; font-weight: 800; color: var(--accent-2); }
   .total .unit { font-size: 12px; color: var(--muted); }
-  .density-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .density-grid button { padding: 8px 0; font-size: 14px; }
-  .density-grid button.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
-  .graft-row {
-    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
-    border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px;
-    background: var(--panel-2); font-size: 13px;
-  }
-  .graft-row .swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-  .graft-row .gval { margin-left: auto; font-weight: 700; }
   .total.graft { background: linear-gradient(135deg, #142a45, #1a1d24); border: 1px solid #2c5a8f; }
   .total.graft .val { color: var(--accent); }
   .caliber-row { display: flex; align-items: center; gap: 6px; font-size: 16px; }
@@ -100,14 +90,24 @@
     background: var(--panel-2); color: var(--text); font-size: 16px; text-align: center;
   }
   .caliber-row .suffix { color: var(--muted); font-size: 14px; }
-  .total.hcv { background: linear-gradient(135deg, #2a1f3d, #1a1d24); border: 1px solid #6b4fa0; }
-  .total.hcv .val { color: #c77dff; }
+  .graft-row {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 9px 10px;
+    border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px;
+    background: var(--panel-2); font-size: 13px;
+  }
+  .graft-row .swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .graft-row select {
+    margin-left: auto; padding: 5px 6px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit;
+  }
+  .graft-row .line2 { width: 100%; display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+  .graft-row .line2 b { font-size: 14px; }
 </style>
 </head>
 <body>
 <header>
   <h1>📐 平面面積計算器</h1>
-  <p>拍完照直接顯示:自動偵測下方的尺與黑/藍框,算出每個框內面積與植髮株數</p>
+  <p>拍完照直接顯示:自動偵測下方的尺與圓形固定器,計算固定器內每個黑框的面積與植髮株數</p>
 </header>
 
 <div class="wrap">
@@ -116,7 +116,7 @@
       <h2>載入照片</h2>
       <label class="file-btn" for="file">📷 選擇 / 拍攝照片</label>
       <input type="file" id="file" accept="image/*">
-      <div class="hint">照片下方放一把 15cm 的尺,待測區域用黑色或藍色畫出封閉框線(同一平面、正對拍攝)。載入後自動分析。</div>
+      <div class="hint">照片下方放一把 15cm 的尺;待測區域放在圓形固定器內,用黑色畫出封閉框線(同一平面、正對拍攝)。載入後自動分析。</div>
       <div class="status" id="calibStatus">尚未載入照片</div>
     </div>
 
@@ -131,22 +131,7 @@
 
     <div class="card">
       <h2>植髮數量計算</h2>
-      <label class="small" style="margin-top:0">植髮密度(株 / cm²)</label>
-      <div class="density-grid" id="densityGrid">
-        <button data-d="30">30</button>
-        <button data-d="40">40</button>
-        <button data-d="50" class="active">50</button>
-        <button data-d="60">60</button>
-        <button data-d="70">70</button>
-        <button data-d="80">80</button>
-        <button data-d="90">90</button>
-      </div>
-      <div id="graftList" style="margin-top:10px"><div class="region-empty">偵測到框後自動估算</div></div>
-      <div class="total graft">
-        <div class="val" id="graftVal">—</div>
-        <div class="unit">預估需要植髮株數</div>
-      </div>
-      <label class="small">客戶毛囊粗細(髮徑)</label>
+      <label class="small" style="margin-top:0">客戶毛囊粗細(髮徑)</label>
       <div class="caliber-row">
         <span class="prefix">0.0</span>
         <input type="number" id="caliber" min="1" max="99" step="1" placeholder="xx" inputmode="numeric">
@@ -157,17 +142,20 @@
         <input type="number" id="hairsPerGraft" min="1" max="6" step="0.1" value="2.0" inputmode="decimal">
         <span class="suffix">根/株</span>
       </div>
-      <div class="total hcv" style="margin-top:10px">
-        <div class="val" id="hcvVal">—</div>
-        <div class="unit" id="hcvSub">HCV = 髮徑(mm) × 密度(株/cm²) × 每株毛髮數</div>
+      <label class="small">各區域密度與株數(每區可獨立設定)</label>
+      <div id="graftList"><div class="region-empty">偵測到框後自動估算</div></div>
+      <div class="total graft">
+        <div class="val" id="graftVal">—</div>
+        <div class="unit">預估需要植髮總株數(各區加總)</div>
       </div>
+      <div class="hint">HCV = 髮徑(mm) × 該區密度(株/cm²) × 每株毛髮數,顯示於各區域列。</div>
     </div>
   </div>
 
   <div class="canvas-area">
     <div class="guide" id="guide">
       <span class="badge" id="guideBadge">1</span>
-      <span id="guideText" style="flex:1">載入照片後自動偵測尺與框框,直接顯示面積</span>
+      <span id="guideText" style="flex:1">載入照片後自動偵測尺、圓形固定器與框框,直接顯示面積</span>
     </div>
     <div id="stage-wrap">
       <div class="empty-hint" id="emptyHint">請先於左側載入一張照片 👈</div>
@@ -188,35 +176,35 @@
   const guide = document.getElementById('guide');
   const guideBadge = document.getElementById('guideBadge');
   const guideText = document.getElementById('guideText');
-  const densityGrid = document.getElementById('densityGrid');
   const graftList = document.getElementById('graftList');
   const graftVal = document.getElementById('graftVal');
   const caliberInput = document.getElementById('caliber');
   const hairsPerGraftInput = document.getElementById('hairsPerGraft');
-  const hcvVal = document.getElementById('hcvVal');
-  const hcvSub = document.getElementById('hcvSub');
 
   const PALETTE = ['#2ecc71', '#4f9dff', '#ff8c42', '#c77dff', '#ff5c8a', '#43d9c9', '#f4d35e', '#a0e548'];
   const DEFAULT_LEN = 15;
-  const MAX_ANALYSIS = 1400;   // 偵測用縮圖最長邊
+  const DEFAULT_DENSITY = 50;
+  const DENSITIES = [30, 40, 50, 60, 70, 80, 90];
+  const MAX_ANALYSIS = 1400;
+  const TOLS = [30, 50, 70, 90];
 
   let img = null;
-  let scale = 1;               // 顯示縮放
+  let scale = 1;
   let mode = null;             // 'calib'(手動標尺中) | null
-  let calibPts = [];           // 尺兩端(原始像素座標),自動或手動
-  let rulerPx = null;          // 尺在原始影像中的像素長
+  let calibPts = [];
+  let rulerPx = null;
   let cmPerPx = null;
   let knownLen = DEFAULT_LEN;
-  let rulerAuto = false;       // 尺是否為自動偵測
+  let rulerAuto = false;
   let analysis = null;         // {data,w,h,af}
-  let scratch = null;          // 偵測用重複使用緩衝區
-  let rulerBox = null;         // 自動偵測到的尺 bbox(縮圖座標)
-  let regions = [];            // {overlay,octx,idxs,pxArea,label,palIdx,cx,cy}
+  let scratch = null;
+  let rulerBox = null;
+  let regions = [];            // {overlay,octx,pxArea,palIdx,cx,cy,density}
   let nextPal = 0;
   let lastMsg = '';
-  let density = 50;
-  let caliber = null;          // 髮徑(mm),輸入 xx → 0.0xx
-  let hairsPerGraft = 2.0;     // 每株平均毛髮數
+  let containerFound = false;  // 是否有偵測到圓形固定器
+  let caliber = null;          // 髮徑(mm)
+  let hairsPerGraft = 2.0;
 
   fileInput.addEventListener('change', e => {
     const f = e.target.files[0];
@@ -261,9 +249,9 @@
     scratch = { wall: new Uint8Array(N), outside: new Uint8Array(N), comp: new Uint8Array(N), stack: new Int32Array(N) };
   }
 
-  // ===== 全自動分析:尺 + 框 =====
+  // ===== 全自動分析 =====
   function autoAnalyze() {
-    regions = []; nextPal = 0; lastMsg = '';
+    regions = []; nextPal = 0; lastMsg = ''; containerFound = false;
     const ruler = autoDetectRuler();
     if (ruler) {
       rulerPx = ruler.lenOrigPx;
@@ -274,12 +262,12 @@
       mode = null;
     } else {
       rulerPx = null; cmPerPx = null; calibPts = []; rulerBox = null; rulerAuto = false;
-      mode = 'calib';   // 找不到尺 → 請使用者點兩端
+      mode = 'calib';
     }
     autoDetectFrames();
   }
 
-  // 自動偵測尺:在下半部找「亮、低彩度、細長」的物體,以整支長度 = knownLen cm 估算
+  // 自動偵測尺:下半部找「亮、低彩度、細長」物體,整支 = knownLen cm
   function autoDetectRuler() {
     const { data, w, h, af } = analysis;
     const y0 = Math.floor(h * 0.45);
@@ -295,7 +283,6 @@
       for (let x = 0; x < w; x++) {
         const start = y * w + x;
         if (visited[start] || !isRuler(start)) continue;
-        // 淹水收集連通塊
         let sp = 0, count = 0, sx = 0, sy = 0;
         let minx = x, maxx = x, miny = y, maxy = y;
         visited[start] = 1; stack[sp++] = start;
@@ -314,14 +301,12 @@
         const bw = maxx - minx + 1, bh = maxy - miny + 1;
         const long = Math.max(bw, bh), short = Math.min(bw, bh);
         const fill = count / (bw * bh);
-        // 細長 + 夠長 + 夠實心 → 候選尺
         if (long >= 0.28 * w && long >= 3 * short && short < 0.25 * h && fill > 0.3) {
           if (!best || long > best.long) best = { idxs, count, sx, sy, minx, maxx, miny, maxy, long };
         }
       }
     }
     if (!best) return null;
-    // PCA 主軸,量取沿主軸的實際長度(容許尺略為傾斜)
     const cx = best.sx / best.count, cy = best.sy / best.count;
     let cxx = 0, cyy = 0, cxy = 0;
     for (const i of best.idxs) {
@@ -347,39 +332,14 @@
     };
   }
 
-  // 自動偵測所有封閉黑/藍框
-  function autoDetectFrames() {
-    for (const color of ['black', 'blue']) {
-      let bestSet = null, bestT = 0;
-      for (const t of [30, 50, 70, 90]) {
-        const set = enclosedComponents(color, t);
-        if (set.length > 6) continue;   // 過多視為雜訊
-        if (set.length && (!bestSet || set.length > bestSet.length)) { bestSet = set; bestT = t; }
-      }
-      if (bestSet) {
-        for (const r of bestSet) addRegion(r.idxs, r.count, r.sx, r.sy, color === 'black' ? '黑框' : '藍框');
-      }
-    }
-    // 依畫面位置(由左至右)排序
-    regions.sort((a, b) => a.cx - b.cx);
-  }
-
-  // 標記牆(框線)像素
-  function buildWall(color, t) {
+  // 標記黑色框線像素
+  function buildWall(t) {
     const { data, w, h } = analysis;
     const N = w * h;
     const wall = scratch.wall;
-    if (color === 'black') {
-      const thr = 30 + t * 1.5;
-      for (let i = 0, q = 0; i < N; i++, q += 4) {
-        wall[i] = (data[q] < thr && data[q + 1] < thr && data[q + 2] < thr) ? 1 : 0;
-      }
-    } else {
-      const dr = 70 - t * 0.6, dg = 50 - t * 0.5;
-      for (let i = 0, q = 0; i < N; i++, q += 4) {
-        const b = data[q + 2];
-        wall[i] = (b > 60 && (b - data[q]) > dr && (b - data[q + 1]) > dg) ? 1 : 0;
-      }
+    const thr = 30 + t * 1.5;
+    for (let i = 0, q = 0; i < N; i++, q += 4) {
+      wall[i] = (data[q] < thr && data[q + 1] < thr && data[q + 2] < thr) ? 1 : 0;
     }
   }
 
@@ -406,24 +366,24 @@
     }
   }
 
-  // 找出所有封閉區域(非外部的連通塊 = 框線+框內)
-  function enclosedComponents(color, t) {
+  // 頂層封閉區塊(非外部的連通塊 = 框線+內部)
+  function topComponents() {
     const { w, h } = analysis;
     const N = w * h;
-    buildWall(color, t);
-    floodOutside();
     const { outside, comp, stack } = scratch;
     comp.fill(0);
-    const minA = Math.max(300, N * 0.001);
     const out = [];
     for (let start = 0; start < N; start++) {
       if (outside[start] || comp[start]) continue;
       let sp = 0, count = 0, sx = 0, sy = 0, touch = false;
+      let minx = start % w, maxx = minx, miny = (start / w) | 0, maxy = miny;
       comp[start] = 1; stack[sp++] = start;
       const idxs = [];
       while (sp > 0) {
         const i = stack[--sp], x = i % w, y = (i / w) | 0;
         count++; sx += x; sy += y; idxs.push(i);
+        if (x < minx) minx = x; if (x > maxx) maxx = x;
+        if (y < miny) miny = y; if (y > maxy) maxy = y;
         if (x === 0 || y === 0 || x === w - 1 || y === h - 1) touch = true;
         let j;
         if (x > 0) { j = i - 1; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp++] = j; } }
@@ -431,15 +391,137 @@
         if (y > 0) { j = i - w; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp++] = j; } }
         if (y < h - 1) { j = i + w; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp++] = j; } }
       }
-      if (touch || count < minA || count > 0.5 * N) continue;
-      const ccx = sx / count, ccy = sy / count;
-      if (rulerBox && ccx >= rulerBox.minx && ccx <= rulerBox.maxx && ccy >= rulerBox.miny && ccy <= rulerBox.maxy) continue;
+      out.push({ idxs, count, sx, sy, minx, maxx, miny, maxy, touch });
+    }
+    return out;
+  }
+
+  function inRulerBox(c) {
+    if (!rulerBox) return false;
+    const ccx = c.sx / c.count, ccy = c.sy / c.count;
+    return ccx >= rulerBox.minx && ccx <= rulerBox.maxx && ccy >= rulerBox.miny && ccy <= rulerBox.maxy;
+  }
+
+  // 從頂層區塊中挑出「圓形固定器」:大、近方形外框、填充率似圓
+  function pickContainer(tops) {
+    const { w, h } = analysis;
+    const N = w * h;
+    let best = null;
+    for (const c of tops) {
+      if (c.touch || c.count < 0.02 * N || c.count > 0.95 * N) continue;
+      const bw = c.maxx - c.minx + 1, bh = c.maxy - c.miny + 1;
+      const aspect = Math.max(bw, bh) / Math.max(1, Math.min(bw, bh));
+      const fill = c.count / (bw * bh);
+      if (aspect <= 1.8 && fill >= 0.55 && fill <= 0.92) {
+        if (!best || c.count > best.count) best = c;
+      }
+    }
+    return best;
+  }
+
+  // 在固定器內找封閉黑框:剝掉固定器環壁與內部開放空間,剩下的連通塊即框
+  function framesInContainer(container) {
+    const { w, h } = analysis;
+    const N = w * h;
+    const { wall, outside } = scratch;
+    const M = new Uint8Array(N);       // 固定器區塊成員
+    for (const i of container.idxs) M[i] = 1;
+    const mark = new Uint8Array(N);    // 1=環壁, 2=內部開放空間
+    const stack = scratch.stack;
+    let sp = 0, j;
+    // 環壁:區塊內與「外部」相鄰的牆,沿牆擴散
+    for (const i of container.idxs) {
+      if (!wall[i]) continue;
+      const x = i % w, y = (i / w) | 0;
+      const adjOut =
+        (x > 0 && outside[i - 1]) || (x < w - 1 && outside[i + 1]) ||
+        (y > 0 && outside[i - w]) || (y < h - 1 && outside[i + w]);
+      if (adjOut && !mark[i]) { mark[i] = 1; stack[sp++] = i; }
+    }
+    while (sp > 0) {
+      const i = stack[--sp], x = i % w, y = (i / w) | 0;
+      if (x > 0) { j = i - 1; if (M[j] && wall[j] && !mark[j]) { mark[j] = 1; stack[sp++] = j; } }
+      if (x < w - 1) { j = i + 1; if (M[j] && wall[j] && !mark[j]) { mark[j] = 1; stack[sp++] = j; } }
+      if (y > 0) { j = i - w; if (M[j] && wall[j] && !mark[j]) { mark[j] = 1; stack[sp++] = j; } }
+      if (y < h - 1) { j = i + w; if (M[j] && wall[j] && !mark[j]) { mark[j] = 1; stack[sp++] = j; } }
+    }
+    // 開放空間:與環壁相鄰的非牆像素,沿非牆擴散
+    sp = 0;
+    for (const i of container.idxs) {
+      if (wall[i] || mark[i]) continue;
+      const x = i % w, y = (i / w) | 0;
+      const adjRing =
+        (x > 0 && mark[i - 1] === 1) || (x < w - 1 && mark[i + 1] === 1) ||
+        (y > 0 && mark[i - w] === 1) || (y < h - 1 && mark[i + w] === 1);
+      if (adjRing) { mark[i] = 2; stack[sp++] = i; }
+    }
+    while (sp > 0) {
+      const i = stack[--sp], x = i % w, y = (i / w) | 0;
+      if (x > 0) { j = i - 1; if (M[j] && !wall[j] && !mark[j]) { mark[j] = 2; stack[sp++] = j; } }
+      if (x < w - 1) { j = i + 1; if (M[j] && !wall[j] && !mark[j]) { mark[j] = 2; stack[sp++] = j; } }
+      if (y > 0) { j = i - w; if (M[j] && !wall[j] && !mark[j]) { mark[j] = 2; stack[sp++] = j; } }
+      if (y < h - 1) { j = i + w; if (M[j] && !wall[j] && !mark[j]) { mark[j] = 2; stack[sp++] = j; } }
+    }
+    // 剩餘 = 各黑框(框線+框內);取連通塊
+    const N2 = N;
+    const minA = Math.max(200, N2 * 0.0005);
+    const seen = new Uint8Array(N);
+    const out = [];
+    for (const start of container.idxs) {
+      if (mark[start] || seen[start]) continue;
+      let sp2 = 0, count = 0, sx = 0, sy = 0;
+      seen[start] = 1; stack[sp2++] = start;
+      const idxs = [];
+      while (sp2 > 0) {
+        const i = stack[--sp2], x = i % w, y = (i / w) | 0;
+        count++; sx += x; sy += y; idxs.push(i);
+        if (x > 0) { j = i - 1; if (M[j] && !mark[j] && !seen[j]) { seen[j] = 1; stack[sp2++] = j; } }
+        if (x < w - 1) { j = i + 1; if (M[j] && !mark[j] && !seen[j]) { seen[j] = 1; stack[sp2++] = j; } }
+        if (y > 0) { j = i - w; if (M[j] && !mark[j] && !seen[j]) { seen[j] = 1; stack[sp2++] = j; } }
+        if (y < h - 1) { j = i + w; if (M[j] && !mark[j] && !seen[j]) { seen[j] = 1; stack[sp2++] = j; } }
+      }
+      if (count < minA || count > 0.8 * container.count) continue;
       out.push({ idxs, count, sx, sy });
     }
     return out;
   }
 
-  function addRegion(idxs, count, sx, sy, label) {
+  // 單一容差的階層偵測:回傳 {frames, hasContainer}
+  function hierarchyDetect(t) {
+    const { w, h } = analysis;
+    const N = w * h;
+    buildWall(t);
+    floodOutside();
+    const tops = topComponents();
+    const container = pickContainer(tops);
+    if (container) {
+      const frames = framesInContainer(container).filter(c => !inRulerBox(c));
+      if (frames.length) return { frames, hasContainer: true };
+      // 固定器內沒有框 → 這個「容器」可能只是個大框,降級當一般框
+      if (container.count <= 0.7 * N) return { frames: [container], hasContainer: false };
+      return { frames: [], hasContainer: true };
+    }
+    const minA = Math.max(300, N * 0.001);
+    const frames = tops.filter(c => !c.touch && c.count >= minA && c.count <= 0.5 * N && !inRulerBox(c));
+    return { frames, hasContainer: false };
+  }
+
+  // 自動偵測:掃過各容差,取最佳結果(有固定器且抓到框者優先)
+  function autoDetectFrames() {
+    let best = null, bestScore = -1;
+    for (const t of TOLS) {
+      const r = hierarchyDetect(t);
+      if (r.frames.length > 8) continue;
+      const score = r.frames.length ? (r.hasContainer ? 100 : 0) + r.frames.length : -0.5;
+      if (score > bestScore) { bestScore = score; best = r; }
+    }
+    if (!best) return;
+    containerFound = best.hasContainer;
+    for (const f of best.frames) addRegion(f.idxs, f.count, f.sx, f.sy);
+    regions.sort((a, b) => a.cx - b.cx);
+  }
+
+  function addRegion(idxs, count, sx, sy) {
     const { w, h, af } = analysis;
     const palIdx = nextPal++;
     const col = hexToRgb(PALETTE[palIdx % PALETTE.length]);
@@ -454,12 +536,13 @@
     }
     octx.putImageData(idata, 0, 0);
     regions.push({
-      overlay: over, octx, pxArea: count / (af * af), label, palIdx,
-      cx: (sx / count) / af, cy: (sy / count) / af
+      overlay: over, octx, pxArea: count / (af * af), palIdx,
+      cx: (sx / count) / af, cy: (sy / count) / af,
+      density: DEFAULT_DENSITY
     });
   }
 
-  // ===== 手動輔助:點框內補偵測 / 點已偵測的框移除 / 手動標尺 =====
+  // ===== 手動輔助 =====
   function toImgCoords(evt) {
     const rect = canvas.getBoundingClientRect();
     return {
@@ -485,9 +568,9 @@
       refresh();
       return;
     }
-    // 點在已偵測的框上 → 移除該框
     const { af } = analysis;
     const ax = Math.round(p.x * af), ay = Math.round(p.y * af);
+    // 點已偵測的框 → 移除
     for (let k = regions.length - 1; k >= 0; k--) {
       if (regions[k].octx.getImageData(ax, ay, 1, 1).data[3] > 0) {
         regions.splice(k, 1);
@@ -495,41 +578,23 @@
         return;
       }
     }
-    // 否則嘗試在點擊處補偵測一個框
+    // 否則嘗試補偵測含點擊處的框
     detectAt(ax, ay);
   });
 
   function detectAt(ax, ay) {
     const { w, h } = analysis;
     if (ax < 0 || ay < 0 || ax >= w || ay >= h) return;
+    const seed = ay * w + ax;
     let best = null;
-    for (const color of ['black', 'blue']) {
-      for (const t of [30, 50, 70, 90]) {
-        buildWall(color, t);
-        floodOutside();
-        const { outside, comp, stack } = scratch;
-        const seed = ay * w + ax;
-        if (outside[seed]) continue;
-        comp.fill(0);
-        let sp = 0, count = 0, sx = 0, sy = 0, touch = false;
-        comp[seed] = 1; stack[sp++] = seed;
-        const idxs = [];
-        while (sp > 0) {
-          const i = stack[--sp], x = i % w, y = (i / w) | 0;
-          count++; sx += x; sy += y; idxs.push(i);
-          if (x === 0 || y === 0 || x === w - 1 || y === h - 1) touch = true;
-          let j;
-          if (x > 0) { j = i - 1; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp++] = j; } }
-          if (x < w - 1) { j = i + 1; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp++] = j; } }
-          if (y > 0) { j = i - w; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp++] = j; } }
-          if (y < h - 1) { j = i + w; if (!outside[j] && !comp[j]) { comp[j] = 1; stack[sp++] = j; } }
-        }
-        if (touch || count < 20 || count > 0.92 * w * h) continue;
-        if (!best || count < best.count) best = { idxs, count, sx, sy, color };
+    for (const t of TOLS) {
+      const r = hierarchyDetect(t);
+      for (const f of r.frames) {
+        if (f.idxs.includes(seed) && (!best || f.count < best.count)) best = f;
       }
     }
-    if (!best) { lastMsg = '這裡偵測不到封閉的黑/藍框'; refresh(); return; }
-    addRegion(best.idxs, best.count, best.sx, best.sy, best.color === 'black' ? '黑框' : '藍框');
+    if (!best) { lastMsg = '這裡偵測不到封閉的黑框'; refresh(); return; }
+    addRegion(best.idxs, best.count, best.sx, best.sy);
     regions.sort((a, b) => a.cx - b.cx);
     lastMsg = '';
     refresh();
@@ -540,7 +605,7 @@
     guide.classList.remove('calib', 'done');
     if (!img) {
       guideBadge.textContent = '1';
-      guideText.textContent = '載入照片後自動偵測尺與框框,直接顯示面積';
+      guideText.textContent = '載入照片後自動偵測尺、圓形固定器與框框,直接顯示面積';
       return;
     }
     if (mode === 'calib') {
@@ -559,9 +624,10 @@
     const rulerNote = rulerAuto
       ? `尺:自動偵測(整支 = <input id="lenInline" class="len-inline" type="number" min="0.1" step="0.1" value="${knownLen}"> cm)`
       : `尺:手動標記(<input id="lenInline" class="len-inline" type="number" min="0.1" step="0.1" value="${knownLen}"> cm)`;
+    const scanNote = containerFound ? '固定器內' : '未見圓形固定器,全圖搜尋';
     guideText.innerHTML =
       (lastMsg ? `<span style="color:var(--danger)">${lastMsg}</span> · ` : '') +
-      `已偵測 <b>${regions.length}</b> 個框 · ${rulerNote}` +
+      `已偵測 <b>${regions.length}</b> 個黑框(${scanNote}) · ${rulerNote}` +
       ` · <span class="glink" id="linkManual">手動標尺</span>` +
       ` · <span class="glink" id="linkReset">重新分析</span>` +
       `<br><span style="font-size:12px;color:var(--muted)">沒抓到的框可直接點框內補偵測;點已偵測的框可移除。自動尺長若不準,請用「手動標尺」點尺上兩個刻度。</span>`;
@@ -617,7 +683,7 @@
       }
       div.innerHTML =
         `<span class="swatch" style="background:${color}"></span>` +
-        `<span class="rlabel">框 ${idx + 1}(${rg.label})</span>` + valHtml +
+        `<span class="rlabel">框 ${idx + 1}</span>` + valHtml +
         `<button class="rdel" data-i="${idx}" title="刪除">✕</button>`;
       regionList.appendChild(div);
     });
@@ -631,43 +697,43 @@
     } else {
       totalVal.textContent = '—';
     }
-    updateGrafts(total, hasAny);
+    updateGrafts();
   }
 
-  function updateGrafts(totalArea, hasAny) {
+  function updateGrafts() {
     graftList.innerHTML = '';
-    if (!regions.length || !hasAny) {
+    const usable = regions.filter(rg => areaOf(rg) != null);
+    if (!usable.length) {
       graftList.innerHTML = '<div class="region-empty">偵測到框後自動估算</div>';
       graftVal.textContent = '—';
       return;
     }
+    let totalGrafts = 0;
     regions.forEach((rg, idx) => {
       const a = areaOf(rg);
       if (a == null) return;
       const color = PALETTE[rg.palIdx % PALETTE.length];
-      const n = Math.round(a * density);
+      const n = Math.round(a * rg.density);
+      totalGrafts += n;
+      const hcv = caliber ? (caliber * rg.density * hairsPerGraft) : null;
+      const opts = DENSITIES.map(d => `<option value="${d}"${d === rg.density ? ' selected' : ''}>${d}</option>`).join('');
       const div = document.createElement('div');
       div.className = 'graft-row';
       div.innerHTML =
         `<span class="swatch" style="background:${color}"></span>` +
-        `<span>框 ${idx + 1}:${a.toFixed(1)} cm² × ${density}</span>` +
-        `<span class="gval" style="color:${color}">${n.toLocaleString()} 株</span>`;
+        `<span>框 ${idx + 1} · ${a.toFixed(1)} cm²</span>` +
+        `<select data-i="${idx}">${opts}</select><span style="color:var(--muted)">株/cm²</span>` +
+        `<div class="line2"><b style="color:${color}">${n.toLocaleString()} 株</b>` +
+        `<span>${hcv != null ? 'HCV ' + hcv.toFixed(2) : ''}</span></div>`;
       graftList.appendChild(div);
     });
-    const totalGrafts = Math.round(totalArea * density);
-    graftVal.innerHTML =
-      `${totalGrafts.toLocaleString()}<div class="unit" style="margin-top:2px">${totalArea.toFixed(2)} cm² × ${density} 株/cm²</div>`;
-  }
-
-  function updateHCV() {
-    if (!caliber) {
-      hcvVal.textContent = '—';
-      hcvSub.textContent = 'HCV = 髮徑(mm) × 密度(株/cm²) × 每株毛髮數';
-      return;
-    }
-    const hcv = caliber * density * hairsPerGraft;
-    hcvVal.textContent = hcv.toFixed(2);
-    hcvSub.textContent = `HCV = ${caliber.toFixed(3)} mm × ${density} 株/cm² × ${hairsPerGraft} 根/株`;
+    graftList.querySelectorAll('select').forEach(sel => {
+      sel.addEventListener('change', () => {
+        regions[parseInt(sel.dataset.i)].density = parseInt(sel.value);
+        updateResults();
+      });
+    });
+    graftVal.innerHTML = `${totalGrafts.toLocaleString()}<div class="unit" style="margin-top:2px">各區株數加總</div>`;
   }
 
   function redraw() {
@@ -707,24 +773,15 @@
     return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
   }
 
-  densityGrid.querySelectorAll('button').forEach(b => {
-    b.addEventListener('click', () => {
-      density = parseInt(b.dataset.d);
-      densityGrid.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
-      updateResults();
-      updateHCV();
-    });
-  });
-
   caliberInput.addEventListener('input', () => {
     const v = parseInt(caliberInput.value);
     caliber = (v >= 1 && v <= 99) ? v / 1000 : null;
-    updateHCV();
+    updateGrafts();
   });
 
   hairsPerGraftInput.addEventListener('input', () => {
     const v = parseFloat(hairsPerGraftInput.value);
-    if (v >= 1 && v <= 6) { hairsPerGraft = v; updateHCV(); }
+    if (v >= 1 && v <= 6) { hairsPerGraft = v; updateGrafts(); }
   });
 
   window.addEventListener('resize', () => { if (img) { setupCanvas(); redraw(); } });
