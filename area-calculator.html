@@ -152,9 +152,14 @@
         <input type="number" id="caliber" min="1" max="99" step="1" placeholder="xx" inputmode="numeric">
         <span class="suffix">mm</span>
       </div>
+      <label class="small">每株平均毛髮數(根/株)</label>
+      <div class="caliber-row">
+        <input type="number" id="hairsPerGraft" min="1" max="6" step="0.1" value="2.0" inputmode="decimal">
+        <span class="suffix">根/株</span>
+      </div>
       <div class="total hcv" style="margin-top:10px">
         <div class="val" id="hcvVal">—</div>
-        <div class="unit" id="hcvSub">HCV 覆蓋值 = 髮徑(mm) × 密度(株/cm²)</div>
+        <div class="unit" id="hcvSub">HCV = 髮徑(mm) × 密度(株/cm²) × 每株毛髮數</div>
       </div>
     </div>
   </div>
@@ -187,6 +192,7 @@
   const graftList = document.getElementById('graftList');
   const graftVal = document.getElementById('graftVal');
   const caliberInput = document.getElementById('caliber');
+  const hairsPerGraftInput = document.getElementById('hairsPerGraft');
   const hcvVal = document.getElementById('hcvVal');
   const hcvSub = document.getElementById('hcvSub');
 
@@ -210,6 +216,7 @@
   let lastMsg = '';
   let density = 50;
   let caliber = null;          // 髮徑(mm),輸入 xx → 0.0xx
+  let hairsPerGraft = 2.0;     // 每株平均毛髮數
 
   fileInput.addEventListener('change', e => {
     const f = e.target.files[0];
@@ -655,12 +662,12 @@
   function updateHCV() {
     if (!caliber) {
       hcvVal.textContent = '—';
-      hcvSub.textContent = 'HCV 覆蓋值 = 髮徑(mm) × 密度(株/cm²)';
+      hcvSub.textContent = 'HCV = 髮徑(mm) × 密度(株/cm²) × 每株毛髮數';
       return;
     }
-    const hcv = caliber * density;
+    const hcv = caliber * density * hairsPerGraft;
     hcvVal.textContent = hcv.toFixed(2);
-    hcvSub.textContent = `HCV = ${caliber.toFixed(3)} mm × ${density} 株/cm²`;
+    hcvSub.textContent = `HCV = ${caliber.toFixed(3)} mm × ${density} 株/cm² × ${hairsPerGraft} 根/株`;
   }
 
   function redraw() {
@@ -713,6 +720,11 @@
     const v = parseInt(caliberInput.value);
     caliber = (v >= 1 && v <= 99) ? v / 1000 : null;
     updateHCV();
+  });
+
+  hairsPerGraftInput.addEventListener('input', () => {
+    const v = parseFloat(hairsPerGraftInput.value);
+    if (v >= 1 && v <= 6) { hairsPerGraft = v; updateHCV(); }
   });
 
   window.addEventListener('resize', () => { if (img) { setupCanvas(); redraw(); } });
