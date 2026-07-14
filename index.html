@@ -267,16 +267,34 @@
     autoDetectFrames();
   }
 
-  // 自動偵測尺:下半部找「亮、低彩度、細長」物體,整支 = knownLen cm
+  // 自動偵測尺:多組參數由嚴到寬輪流嘗試(亮度/彩度門檻、搜尋範圍、最短長度)
+  // 以 PCA 主軸量形狀與長度,尺斜放也能辨識。整支 = knownLen cm
   function autoDetectRuler() {
+    const passes = [
+      { y0f: 0.45, bright: 140, sat: 55, minLenF: 0.28 },   // 標準:下半部、亮白
+      { y0f: 0.45, bright: 110, rel: 0.22, minLenF: 0.24 }, // 光線較暗(相對彩度,不吸入膚色)
+      { y0f: 0.30, bright: 140, sat: 60, minLenF: 0.24 },   // 尺放得較高
+      { y0f: 0.30, bright: 100, rel: 0.28, minLenF: 0.20 }, // 更暗、微帶色
+      { y0f: 0,    bright: 110, rel: 0.25, minLenF: 0.18 }  // 全圖、最寬鬆
+    ];
+    for (const p of passes) {
+      const r = rulerPass(p);
+      if (r) return r;
+    }
+    return null;
+  }
+
+  function rulerPass(cfg) {
     const { data, w, h, af } = analysis;
-    const y0 = Math.floor(h * 0.45);
+    const y0 = Math.floor(h * cfg.y0f);
     const visited = new Uint8Array(w * h);
     const stack = scratch.stack;
     const isRuler = i => {
       const q = i * 4, r = data[q], g = data[q + 1], b = data[q + 2];
       const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-      return mx > 140 && (mx - mn) < 55;
+      if (mx <= cfg.bright) return false;
+      // rel = 相對彩度門檻:灰白尺即使偏暗仍接近 0,膚色約 0.3,分得開
+      return cfg.rel != null ? (mx - mn) < cfg.rel * mx : (mx - mn) < cfg.sat;
     };
     let best = null;
     for (let y = y0; y < h; y++) {
@@ -298,35 +316,37 @@
           if (iy > y0) { j = i - w; if (!visited[j] && isRuler(j)) { visited[j] = 1; stack[sp++] = j; } }
           if (iy < h - 1) { j = i + w; if (!visited[j] && isRuler(j)) { visited[j] = 1; stack[sp++] = j; } }
         }
+        // 快篩:太小或外框太短的略過,避免對雜訊做 PCA
         const bw = maxx - minx + 1, bh = maxy - miny + 1;
-        const long = Math.max(bw, bh), short = Math.min(bw, bh);
-        const fill = count / (bw * bh);
-        if (long >= 0.28 * w && long >= 3 * short && short < 0.25 * h && fill > 0.3) {
-          if (!best || long > best.long) best = { idxs, count, sx, sy, minx, maxx, miny, maxy, long };
+        if (count < 200 || Math.max(bw, bh) < 0.7 * cfg.minLenF * w) continue;
+        // PCA 主軸:主軸長 L、副軸寬 S(斜放的尺 bbox 會失真,PCA 不會)
+        const cx = sx / count, cy = sy / count;
+        let cxx = 0, cyy = 0, cxy = 0;
+        for (const i of idxs) {
+          const dx = (i % w) - cx, dy = ((i / w) | 0) - cy;
+          cxx += dx * dx; cyy += dy * dy; cxy += dx * dy;
         }
+        const ang = 0.5 * Math.atan2(2 * cxy, cxx - cyy);
+        const ux = Math.cos(ang), uy = Math.sin(ang);
+        let tmin = Infinity, tmax = -Infinity, smin = Infinity, smax = -Infinity;
+        for (const i of idxs) {
+          const px = i % w, py = (i / w) | 0;
+          const t = px * ux + py * uy, s2 = -px * uy + py * ux;
+          if (t < tmin) tmin = t; if (t > tmax) tmax = t;
+          if (s2 < smin) smin = s2; if (s2 > smax) smax = s2;
+        }
+        const L = tmax - tmin, S = smax - smin;
+        if (L < cfg.minLenF * w || L < 2.8 * S || S > 0.22 * h) continue;
+        if (count / (L * S) < 0.35) continue;
+        if (!best || L > best.L) best = { L, cx, cy, ux, uy, tmin, tmax, minx, maxx, miny, maxy };
       }
     }
     if (!best) return null;
-    const cx = best.sx / best.count, cy = best.sy / best.count;
-    let cxx = 0, cyy = 0, cxy = 0;
-    for (const i of best.idxs) {
-      const dx = (i % w) - cx, dy = ((i / w) | 0) - cy;
-      cxx += dx * dx; cyy += dy * dy; cxy += dx * dy;
-    }
-    const ang = 0.5 * Math.atan2(2 * cxy, cxx - cyy);
-    const ux = Math.cos(ang), uy = Math.sin(ang);
-    let tmin = Infinity, tmax = -Infinity;
-    for (const i of best.idxs) {
-      const t = (i % w) * ux + ((i / w) | 0) * uy;
-      if (t < tmin) tmin = t;
-      if (t > tmax) tmax = t;
-    }
-    const extent = tmax - tmin;
-    const tc = cx * ux + cy * uy;
-    const e1 = { x: (cx + (tmin - tc) * ux) / af, y: (cy + (tmin - tc) * uy) / af };
-    const e2 = { x: (cx + (tmax - tc) * ux) / af, y: (cy + (tmax - tc) * uy) / af };
+    const tc = best.cx * best.ux + best.cy * best.uy;
+    const e1 = { x: (best.cx + (best.tmin - tc) * best.ux) / af, y: (best.cy + (best.tmin - tc) * best.uy) / af };
+    const e2 = { x: (best.cx + (best.tmax - tc) * best.ux) / af, y: (best.cy + (best.tmax - tc) * best.uy) / af };
     return {
-      lenOrigPx: extent / af,
+      lenOrigPx: best.L / af,
       endpoints: [e1, e2],
       bbox: { minx: best.minx, maxx: best.maxx, miny: best.miny, maxy: best.maxy }
     };
